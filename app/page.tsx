@@ -5,26 +5,39 @@ import { FormEvent, useState } from "react";
 type Todo = {
   id: number;
   text: string;
+  completed: boolean;
 };
 
 export default function Home() {
   const [input, setInput] = useState("");
   const [todos, setTodos] = useState<Todo[]>([]);
 
-  const handleAddTodo = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const addTodo = () => {
     const text = input.trim();
 
     if (!text) {
       return;
     }
 
-    setTodos((prev) => [{ id: Date.now(), text }, ...prev]);
+    setTodos((prev) => [{ id: Date.now(), text, completed: false }, ...prev]);
     setInput("");
+  };
+
+  const handleAddTodo = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    addTodo();
   };
 
   const handleDeleteTodo = (id: number) => {
     setTodos((prev) => prev.filter((todo) => todo.id !== id));
+  };
+
+  const handleToggleTodo = (id: number) => {
+    setTodos((prev) =>
+      prev.map((todo) =>
+        todo.id === id ? { ...todo, completed: !todo.completed } : todo,
+      ),
+    );
   };
 
   return (
@@ -54,7 +67,8 @@ export default function Home() {
           }}
         />
         <button
-          type="submit"
+          type="button"
+          onClick={addTodo}
           style={{
             padding: "10px 16px",
             borderRadius: "6px",
@@ -82,7 +96,27 @@ export default function Home() {
               borderRadius: "8px",
             }}
           >
-            <span>{todo.text}</span>
+            <label
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={todo.completed}
+                onChange={() => handleToggleTodo(todo.id)}
+              />
+              <span
+                style={{
+                  textDecoration: todo.completed ? "line-through" : "none",
+                  color: todo.completed ? "#6b7280" : "#111827",
+                }}
+              >
+                {todo.text}
+              </span>
+            </label>
             <button
               type="button"
               onClick={() => handleDeleteTodo(todo.id)}
