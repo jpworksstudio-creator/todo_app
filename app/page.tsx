@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 
 type Todo = {
   id: number;
@@ -8,10 +8,13 @@ type Todo = {
   completed: boolean;
 };
 
+type FilterType = "all" | "active" | "completed";
+
 export default function Home() {
   const [input, setInput] = useState("");
   const [todos, setTodos] = useState<Todo[]>([]);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [filter, setFilter] = useState<FilterType>("all");
+  const hasInitializedStorage = useRef(false);
 
   const addTodo = () => {
     const text = input.trim();
@@ -44,30 +47,41 @@ export default function Home() {
   useEffect(() => {
     const savedTodos = localStorage.getItem("todos");
 
-    if (!savedTodos) {
-      setIsLoaded(true);
-      return;
+    if (savedTodos) {
+      try {
+        const parsed = JSON.parse(savedTodos) as Todo[];
+        if (Array.isArray(parsed)) {
+          queueMicrotask(() => {
+            setTodos(parsed);
+          });
+        }
+      } catch {
+        // Ignore invalid JSON and fall back to empty list.
+      }
     }
 
-    try {
-      const parsed = JSON.parse(savedTodos) as Todo[];
-      if (Array.isArray(parsed)) {
-        setTodos(parsed);
-      }
-    } catch {
-      // Ignore invalid JSON and fall back to empty list.
-    } finally {
-      setIsLoaded(true);
-    }
+    hasInitializedStorage.current = true;
   }, []);
 
   useEffect(() => {
-    if (!isLoaded) {
+    if (!hasInitializedStorage.current) {
       return;
     }
 
     localStorage.setItem("todos", JSON.stringify(todos));
-  }, [todos, isLoaded]);
+  }, [todos]);
+
+  const filteredTodos = todos.filter((todo) => {
+    if (filter === "active") {
+      return !todo.completed;
+    }
+
+    if (filter === "completed") {
+      return todo.completed;
+    }
+
+    return true;
+  });
 
   return (
     <main
@@ -111,8 +125,53 @@ export default function Home() {
         </button>
       </form>
 
+      <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
+        <button
+          type="button"
+          onClick={() => setFilter("all")}
+          style={{
+            padding: "6px 10px",
+            borderRadius: "6px",
+            border: "1px solid #d1d5db",
+            background: filter === "all" ? "#111827" : "#ffffff",
+            color: filter === "all" ? "#ffffff" : "#111827",
+            cursor: "pointer",
+          }}
+        >
+          すべて
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter("active")}
+          style={{
+            padding: "6px 10px",
+            borderRadius: "6px",
+            border: "1px solid #d1d5db",
+            background: filter === "active" ? "#111827" : "#ffffff",
+            color: filter === "active" ? "#ffffff" : "#111827",
+            cursor: "pointer",
+          }}
+        >
+          未完了
+        </button>
+        <button
+          type="button"
+          onClick={() => setFilter("completed")}
+          style={{
+            padding: "6px 10px",
+            borderRadius: "6px",
+            border: "1px solid #d1d5db",
+            background: filter === "completed" ? "#111827" : "#ffffff",
+            color: filter === "completed" ? "#ffffff" : "#111827",
+            cursor: "pointer",
+          }}
+        >
+          完了
+        </button>
+      </div>
+
       <ul style={{ listStyle: "none", padding: 0, marginTop: "20px" }}>
-        {todos.map((todo) => (
+        {filteredTodos.map((todo) => (
           <li
             key={todo.id}
             style={{
