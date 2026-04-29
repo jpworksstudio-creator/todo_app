@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 type Todo = {
   id: number;
@@ -11,6 +11,7 @@ type Todo = {
 export default function Home() {
   const [input, setInput] = useState("");
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
   const addTodo = () => {
     const text = input.trim();
@@ -39,6 +40,34 @@ export default function Home() {
       ),
     );
   };
+
+  useEffect(() => {
+    const savedTodos = localStorage.getItem("todos");
+
+    if (!savedTodos) {
+      setIsLoaded(true);
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(savedTodos) as Todo[];
+      if (Array.isArray(parsed)) {
+        setTodos(parsed);
+      }
+    } catch {
+      // Ignore invalid JSON and fall back to empty list.
+    } finally {
+      setIsLoaded(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isLoaded) {
+      return;
+    }
+
+    localStorage.setItem("todos", JSON.stringify(todos));
+  }, [todos, isLoaded]);
 
   return (
     <main
