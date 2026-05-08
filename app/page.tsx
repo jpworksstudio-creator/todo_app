@@ -166,6 +166,18 @@ export default function Home() {
     );
   };
 
+  const handleCompleteAllTodos = () => {
+    setTodos((prev) =>
+      prev.map((todo) =>
+        todo.completed ? todo : { ...todo, completed: true },
+      ),
+    );
+  };
+
+  const handleDeleteCompletedTodos = () => {
+    setTodos((prev) => prev.filter((todo) => !todo.completed));
+  };
+
   const handleStartEdit = (todo: Todo) => {
     setEditingTodoId(todo.id);
     setEditingText(todo.text);
@@ -228,6 +240,9 @@ export default function Home() {
 
     return true;
   });
+
+  const hasTodos = todos.length > 0;
+  const hasCompletedTodos = todos.some((todo) => todo.completed);
 
   return (
     <main
@@ -313,6 +328,39 @@ export default function Home() {
           }}
         >
           完了
+        </button>
+      </div>
+
+      <div style={{ display: "flex", gap: "8px", marginTop: "12px" }}>
+        <button
+          type="button"
+          onClick={handleCompleteAllTodos}
+          disabled={!hasTodos}
+          style={{
+            padding: "6px 10px",
+            borderRadius: "6px",
+            border: "1px solid #d1d5db",
+            background: hasTodos ? "#0f766e" : "#9ca3af",
+            color: "#ffffff",
+            cursor: hasTodos ? "pointer" : "not-allowed",
+          }}
+        >
+          すべて完了
+        </button>
+        <button
+          type="button"
+          onClick={handleDeleteCompletedTodos}
+          disabled={!hasCompletedTodos}
+          style={{
+            padding: "6px 10px",
+            borderRadius: "6px",
+            border: "1px solid #d1d5db",
+            background: hasCompletedTodos ? "#b91c1c" : "#9ca3af",
+            color: "#ffffff",
+            cursor: hasCompletedTodos ? "pointer" : "not-allowed",
+          }}
+        >
+          完了済みを一括削除
         </button>
       </div>
 
