@@ -18,11 +18,52 @@ const newTodoInputStyle: CSSProperties = {
   fontFamily: "inherit",
 };
 
+/** カテゴリ未入力・旧データ互換用の既定ラベル */
+const DEFAULT_CATEGORY = "未分類";
+
 type Todo = {
   id: number;
   text: string;
   completed: boolean;
+  category: string;
 };
+
+function normalizeTodosFromStorage(raw: unknown): Todo[] {
+  if (!Array.isArray(raw)) {
+    return [];
+  }
+
+  const result: Todo[] = [];
+
+  for (const item of raw) {
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+
+    const record = item as Record<string, unknown>;
+    const id = record.id;
+    const text = record.text;
+    const completed = record.completed;
+
+    if (
+      typeof id !== "number" ||
+      typeof text !== "string" ||
+      typeof completed !== "boolean"
+    ) {
+      continue;
+    }
+
+    const categoryRaw = record.category;
+    const category =
+      typeof categoryRaw === "string" && categoryRaw.trim().length > 0
+        ? categoryRaw.trim()
+        : DEFAULT_CATEGORY;
+
+    result.push({ id, text, completed, category });
+  }
+
+  return result;
+}
 
 type FilterType = "all" | "active" | "completed";
 
@@ -132,10 +173,12 @@ function TodoTextScrollBox({
 
 export default function Home() {
   const [input, setInput] = useState("");
+  const [categoryInput, setCategoryInput] = useState("");
   const [todos, setTodos] = useState<Todo[]>([]);
   const [filter, setFilter] = useState<FilterType>("all");
   const [editingTodoId, setEditingTodoId] = useState<number | null>(null);
   const [editingText, setEditingText] = useState("");
+  const [editingCategory, setEditingCategory] = useState("");
   const hasInitializedStorage = useRef(false);
 
   const addTodo = () => {
@@ -145,8 +188,16 @@ export default function Home() {
       return;
     }
 
-    setTodos((prev) => [{ id: Date.now(), text, completed: false }, ...prev]);
+    const categoryTrimmed = categoryInput.trim();
+    const category =
+      categoryTrimmed.length > 0 ? categoryTrimmed : DEFAULT_CATEGORY;
+
+    setTodos((prev) => [
+      { id: Date.now(), text, completed: false, category },
+      ...prev,
+    ]);
     setInput("");
+    setCategoryInput("");
   };
 
   const handleAddTodo = (event: FormEvent<HTMLFormElement>) => {
@@ -181,11 +232,13 @@ export default function Home() {
   const handleStartEdit = (todo: Todo) => {
     setEditingTodoId(todo.id);
     setEditingText(todo.text);
+    setEditingCategory(todo.category);
   };
 
   const handleCancelEdit = () => {
     setEditingTodoId(null);
     setEditingText("");
+    setEditingCategory("");
   };
 
   const handleSaveEdit = (id: number) => {
@@ -195,11 +248,18 @@ export default function Home() {
       return;
     }
 
+    const categoryTrimmed = editingCategory.trim();
+    const category =
+      categoryTrimmed.length > 0 ? categoryTrimmed : DEFAULT_CATEGORY;
+
     setTodos((prev) =>
-      prev.map((todo) => (todo.id === id ? { ...todo, text } : todo)),
+      prev.map((todo) =>
+        todo.id === id ? { ...todo, text, category } : todo,
+      ),
     );
     setEditingTodoId(null);
     setEditingText("");
+    setEditingCategory("");
   };
 
   useEffect(() => {
@@ -207,12 +267,11 @@ export default function Home() {
 
     if (savedTodos) {
       try {
-        const parsed = JSON.parse(savedTodos) as Todo[];
-        if (Array.isArray(parsed)) {
-          queueMicrotask(() => {
-            setTodos(parsed);
-          });
-        }
+        const parsed: unknown = JSON.parse(savedTodos);
+        const normalized = normalizeTodosFromStorage(parsed);
+        queueMicrotask(() => {
+          setTodos(normalized);
+        });
       } catch {
         // Ignore invalid JSON and fall back to empty list.
       }
@@ -259,31 +318,45 @@ export default function Home() {
         ToDo App
       </h1>
 
-      <form onSubmit={handleAddTodo} style={{ display: "flex", gap: "8px" }}>
+      <form onSubmit={handleAddTodo}>
+        <div style={{ display: "flex", gap: "8px" }}>
+          <input
+            type="text"
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            placeholder="新しいToDoを入力"
+            style={{
+              ...newTodoInputStyle,
+              flex: 1,
+            }}
+          />
+          <button
+            type="button"
+            onClick={addTodo}
+            style={{
+              padding: "10px 16px",
+              borderRadius: "6px",
+              border: "none",
+              background: "#111",
+              color: "#fff",
+              cursor: "pointer",
+            }}
+          >
+            追加
+          </button>
+        </div>
         <input
           type="text"
-          value={input}
-          onChange={(event) => setInput(event.target.value)}
-          placeholder="新しいToDoを入力"
+          value={categoryInput}
+          onChange={(event) => setCategoryInput(event.target.value)}
+          placeholder={`カテゴリ（空欄は「${DEFAULT_CATEGORY}」）`}
+          aria-label="新規タスクのカテゴリ"
           style={{
             ...newTodoInputStyle,
-            flex: 1,
+            width: "100%",
+            marginTop: "8px",
           }}
         />
-        <button
-          type="button"
-          onClick={addTodo}
-          style={{
-            padding: "10px 16px",
-            borderRadius: "6px",
-            border: "none",
-            background: "#111",
-            color: "#fff",
-            cursor: "pointer",
-          }}
-        >
-          追加
-        </button>
       </form>
 
       <div style={{ display: "flex", gap: "8px", marginTop: "16px" }}>
@@ -394,13 +467,50 @@ export default function Home() {
                 alignSelf: "center",
               }}
             />
-            <TodoTextScrollBox
-              isEditing={editingTodoId === todo.id}
-              editingText={editingText}
-              onEditingChange={setEditingText}
-              displayText={todo.text}
-              completed={todo.completed}
-            />
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: "6px",
+                minWidth: 0,
+              }}
+            >
+              {editingTodoId === todo.id ? (
+                <input
+                  type="text"
+                  value={editingCategory}
+                  onChange={(event) => setEditingCategory(event.target.value)}
+                  placeholder={`カテゴリ（空欄は「${DEFAULT_CATEGORY}」）`}
+                  aria-label="編集中のカテゴリ"
+                  style={{
+                    ...newTodoInputStyle,
+                    width: "100%",
+                  }}
+                />
+              ) : (
+                <span
+                  style={{
+                    alignSelf: "flex-start",
+                    padding: "2px 8px",
+                    borderRadius: "999px",
+                    fontSize: "12px",
+                    fontWeight: 600,
+                    background: "#eef2ff",
+                    color: "#3730a3",
+                    border: "1px solid #c7d2fe",
+                  }}
+                >
+                  {todo.category}
+                </span>
+              )}
+              <TodoTextScrollBox
+                isEditing={editingTodoId === todo.id}
+                editingText={editingText}
+                onEditingChange={setEditingText}
+                displayText={todo.text}
+                completed={todo.completed}
+              />
+            </div>
             <div
               style={{
                 display: "flex",
