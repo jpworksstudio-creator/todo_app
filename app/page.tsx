@@ -1,8 +1,8 @@
 export default function Home() {
   return (
-    <main>
-      <h1>Kanban ToDo</h1>
-      <p>セットアップ中です。</p>
+    <main className="mx-auto max-w-3xl px-4 py-10">
+      <h1 className="text-2xl font-bold text-slate-900">Kanban ToDo</h1>
+      <p className="mt-2 text-sm text-slate-600">セットアップ中です。</p>
     </main>
   );
 }
